@@ -89,24 +89,24 @@ class CycloneDXCommand:
             sys.exit(1)
         conan_command = ConanCommand(conan_api)
 
-        profile_build = ProfileData(profiles=self._arguments["profile_build"],
-                                    settings=self._arguments["settings_build"],
-                                    options=self._arguments["options_build"],
-                                    env=self._arguments["env_build"],
-                                    conf=self._arguments["conf_build"])
+        profile_build = ProfileData(profiles=self._get_argument("profile_build"),
+                                    settings=self._get_argument("settings_build"),
+                                    options=self._get_argument("options_build"),
+                                    env=self._get_argument("env_build"),
+                                    conf=self._get_argument("conf_build"))
         data = conan_command._conan.info(
-            self._arguments["path_or_reference"],
-            remote_name=self._arguments["remote"],
-            settings=self._arguments["settings_host"],
-            options=self._arguments["options_host"],
-            env=self._arguments["env_host"],
-            profile_names=self._arguments["profile_host"],
-            conf=self._arguments["conf_host"],
+            self._get_argument("path_or_reference"),
+            remote_name=self._get_argument("remote"),
+            settings=self._get_argument("settings_host"),
+            options=self._get_argument("options_host"),
+            env=self._get_argument("env_host"),
+            profile_names=self._get_argument("profile_host"),
+            conf=self._get_argument("conf_host"),
             profile_build=profile_build,
-            update=self._arguments["update"],
-            install_folder=self._arguments["install_folder"],
-            build=self._arguments["dry_build"],
-            lockfile=self._arguments["lockfile"])
+            update=self._get_argument("update"),
+            install_folder=self._get_argument("install_folder"),
+            build=self._get_argument("dry_build"),
+            lockfile=self._get_argument("lockfile"))
 
         deps_graph: DepsGraph = data[0]
 
@@ -118,7 +118,7 @@ class CycloneDXCommand:
             "metadata": {
                 "component": {
                     "bom-ref": "unknown@0.0.0",
-                    "type": "application",
+                    "type": "library",
                     "name": "unknown",
                     "version": "0.0.0",
                 },
@@ -128,7 +128,7 @@ class CycloneDXCommand:
         }
 
         required_ids = set()
-        if self._arguments["exclude_dev"]:
+        if self._get_argument("exclude_dev"):
             visited_ids = set()
             to_visit: Set[Node] = set(node for node in deps_graph.nodes if node.ref is None)
             while to_visit:
@@ -153,7 +153,7 @@ class CycloneDXCommand:
                 for dependency in node.dependencies:
                     purl = get_purl(dependency.dst.remote, dependency.dst.ref)
                     if (
-                        self._arguments["exclude_dev"]
+                        self._get_argument("exclude_dev")
                         and str(dependency.dst.id) not in required_ids
                     ):
                         continue
@@ -161,7 +161,7 @@ class CycloneDXCommand:
                 bom["dependencies"].append(dependencies)
             else:
                 if (
-                    self._arguments["exclude_dev"]
+                    self._get_argument("exclude_dev")
                     and str(node.id) not in required_ids
                 ):
                     continue
@@ -188,7 +188,7 @@ class CycloneDXCommand:
                 }
                 for dependency in node.dependencies:
                     if (
-                        self._arguments["exclude_dev"]
+                        self._get_argument("exclude_dev")
                         and str(dependency.dst.id) not in required_ids
                     ):
                         continue
@@ -197,20 +197,22 @@ class CycloneDXCommand:
                 bom["dependencies"].append(dependencies)
 
         output = json.dumps(bom, indent=2)
-        if self._arguments["output_file"] == "-" or not self._arguments["output_file"]:
+        if self._get_argument("output_file") == "-" or not self._get_argument("output_file"):
             print(output)
         else:
-            with open(self._arguments["output_file"], "w") as file:
+            with open(self._get_argument("output_file"), "w") as file:
                 file.write(output)
 
     def get_licenses(self, conanfile):
         if conanfile.license:
+            licenses = conanfile.license
+            if not (isinstance(licenses, list) or isinstance(licenses, tuple)):
+                licenses = [licenses]
             return [
                 {
-                    "license": {
-                        "id": conanfile.license
-                    }
+                    "license": {"id": l}
                 }
+                for l in licenses
             ]
         else:
             return []
@@ -225,6 +227,9 @@ class CycloneDXCommand:
             ]
         else:
             return []
+
+    def _get_argument(self, key: str):
+        return self._arguments.get(key, None)
 
 
 def get_purl(remote, ref):
