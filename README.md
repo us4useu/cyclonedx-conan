@@ -1,4 +1,4 @@
-# CycloneDX Conan SBOM Generation Tool
+# CycloneDX Conan SBOM Generation Tool 1.x
 
 [![shield_pypi-version]][link_pypi]
 [![shield_gh-workflow-test]][link_gh-workflow-test]
