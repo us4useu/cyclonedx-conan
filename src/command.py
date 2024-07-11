@@ -32,6 +32,10 @@ from packageurl import PackageURL
 from typing import Set
 
 
+def sanitize(value: str) -> str:
+    return f"{value}" if value else ""
+
+
 class CycloneDXCommand:
     # Parsed Arguments
     _arguments: argparse.Namespace
@@ -162,12 +166,18 @@ class CycloneDXCommand:
                 ):
                     continue
                 purl = get_purl(node.remote, node.ref)
+
                 component = {
                     'bom-ref': str(purl),
                     'type': 'library',
-                    'name': node.ref.name,
-                    'version': node.ref.version,
+                    'name': node.conanfile.name,
+                    'version': node.conanfile.version,
+                    'description': sanitize(node.conanfile.description),
+                    # For now it seems that there is no author here ...
+                    # 'author': sanitize(node.conanfile.author),
                     'purl': str(purl),
+                    'externalReferences': self.get_external_references(node.conanfile),
+                    'licenses': self.get_licenses(node.conanfile)
                 }
                 if node.ref.user:
                     component['namespace'] = node.ref.user
@@ -192,6 +202,29 @@ class CycloneDXCommand:
         else:
             with open(self._arguments.output_file, "w") as file:
                 file.write(output)
+
+    def get_licenses(self, conanfile):
+        if conanfile.license:
+            return [
+                {
+                    "license": {
+                        "id": conanfile.license
+                    }
+                }
+            ]
+        else:
+            return []
+
+    def get_external_references(self, conanfile):
+        if conanfile.homepage:
+            return [
+                {
+                    "type": "website",
+                    "url": conanfile.homepage
+                }
+            ]
+        else:
+            return []
 
 
 def get_purl(remote, ref):

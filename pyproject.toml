@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "cyclonedx-conan"
-version = "0.4.1"
+version = "0.4.2+us4us"
 description = "Creates CycloneDX Software Bill of Materials (SBOM) documents for C/C++ projects using Conan"
 authors = ["Patrick Dwyer <patrick.dwyer@owasp.org>"]
 maintainers = [
