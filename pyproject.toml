@@ -12,7 +12,7 @@ readme = "README.md"
 homepage = "https://github.com/CycloneDX/cyclonedx-conan#readme"
 repository = "https://github.com/CycloneDX/cyclonedx-conan"
 packages = [
-    { include = "src" }
+    { include = "cyclonedx_conan" }
 ]
 include = [
     "LICENSE", "NOTICE"
@@ -26,7 +26,7 @@ packageurl-python = "^0.9.6"
 [tool.poetry.dev-dependencies]
 
 [tool.poetry.scripts]
-cyclonedx-conan = 'src.command:main'
+cyclonedx-conan = 'cyclonedx_conan.command:main'
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

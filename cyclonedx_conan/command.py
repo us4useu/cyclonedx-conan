@@ -29,7 +29,7 @@ from conans.client.graph.graph import DepsGraph, Node
 from conans.client.output import ConanOutput, colorama_initialize
 from conans.errors import ConanMigrationError, ConanException
 from packageurl import PackageURL
-from typing import Set
+from typing import Set, Dict, Any
 
 
 def sanitize(value: str) -> str:
@@ -40,12 +40,12 @@ class CycloneDXCommand:
     # Parsed Arguments
     _arguments: argparse.Namespace
 
-    def __init__(self, args: argparse.Namespace):
+    def __init__(self, args: Dict[str, Any]):
         self._arguments = args
 
     @staticmethod
     def get_arg_parser() -> argparse.ArgumentParser:
-        parser = argparse.ArgumentParser(description='CycloneDX SBOM Generator')
+        parser = argparse.ArgumentParser(description="CycloneDX SBOM Generator")
 
         parser.add_argument("path_or_reference", help="Path to a folder containing a recipe"
                             " (conanfile.py or conanfile.txt) or to a recipe file. e.g., "
@@ -59,15 +59,15 @@ class CycloneDXCommand:
         dry_build_help = ("Apply the --build argument to output the information, "
                           "as it would be done by the install command")
         parser.add_argument("-db", "--dry-build", action=Extender, nargs="?", help=dry_build_help)
-        output_help='Output file path for your SBOM (set to \'-\' to output to STDOUT)'
+        output_help="Output file path for your SBOM (set to \"-\" to output to STDOUT)"
         parser.add_argument(
-            '--output', action='store', metavar='FILE_PATH', default="-", required=False,
-            help=output_help, dest='output_file'
+            "--output", action="store", metavar="FILE_PATH", default="-", required=False,
+            help=output_help, dest="output_file"
         )
-        exclude_dev_help = 'Exclude development dependencies from the BOM'
+        exclude_dev_help = "Exclude development dependencies from the BOM"
         parser.add_argument(
-            '--exclude-dev', action='store_true',
-            help=exclude_dev_help, dest='exclude_dev'
+            "--exclude-dev", action="store_true",
+            help=exclude_dev_help, dest="exclude_dev"
         )
         build_help = ("Given a build policy, return an ordered list of packages that would be built"
                       " from sources during the install command")
@@ -89,24 +89,24 @@ class CycloneDXCommand:
             sys.exit(1)
         conan_command = ConanCommand(conan_api)
 
-        profile_build = ProfileData(profiles=self._arguments.profile_build,
-                                    settings=self._arguments.settings_build,
-                                    options=self._arguments.options_build,
-                                    env=self._arguments.env_build,
-                                    conf=self._arguments.conf_build)
+        profile_build = ProfileData(profiles=self._arguments["profile_build"],
+                                    settings=self._arguments["settings_build"],
+                                    options=self._arguments["options_build"],
+                                    env=self._arguments["env_build"],
+                                    conf=self._arguments["conf_build"])
         data = conan_command._conan.info(
-            self._arguments.path_or_reference,
-            remote_name=self._arguments.remote,
-            settings=self._arguments.settings_host,
-            options=self._arguments.options_host,
-            env=self._arguments.env_host,
-            profile_names=self._arguments.profile_host,
-            conf=self._arguments.conf_host,
+            self._arguments["path_or_reference"],
+            remote_name=self._arguments["remote"],
+            settings=self._arguments["settings_host"],
+            options=self._arguments["options_host"],
+            env=self._arguments["env_host"],
+            profile_names=self._arguments["profile_host"],
+            conf=self._arguments["conf_host"],
             profile_build=profile_build,
-            update=self._arguments.update,
-            install_folder=self._arguments.install_folder,
-            build=self._arguments.dry_build,
-            lockfile=self._arguments.lockfile)
+            update=self._arguments["update"],
+            install_folder=self._arguments["install_folder"],
+            build=self._arguments["dry_build"],
+            lockfile=self._arguments["lockfile"])
 
         deps_graph: DepsGraph = data[0]
 
@@ -115,20 +115,20 @@ class CycloneDXCommand:
             "specVersion": "1.3",
             "serialNumber": "urn:uuid:" + str(uuid4()),
             "version": 1,
-            'metadata': {
-                'component': {
-                    'bom-ref': 'unknown@0.0.0',
-                    'type': 'application',
-                    'name': 'unknown',
-                    'version': '0.0.0',
+            "metadata": {
+                "component": {
+                    "bom-ref": "unknown@0.0.0",
+                    "type": "application",
+                    "name": "unknown",
+                    "version": "0.0.0",
                 },
             },
-            'components': [],
-            'dependencies': [],
+            "components": [],
+            "dependencies": [],
         }
 
         required_ids = set()
-        if self._arguments.exclude_dev:
+        if self._arguments["exclude_dev"]:
             visited_ids = set()
             to_visit: Set[Node] = set(node for node in deps_graph.nodes if node.ref is None)
             while to_visit:
@@ -144,63 +144,63 @@ class CycloneDXCommand:
         for node in deps_graph.nodes:
             if node.ref is None:
                 # top level component
-                bom['metadata']['component']['name'] = os.path.basename(os.path.dirname(node.path))
-                bom['metadata']['component']['bom-ref'] = bom['metadata']['component']['name'] + '@' + bom['metadata']['component']['version']
+                bom["metadata"]["component"]["name"] = os.path.basename(os.path.dirname(node.path))
+                bom["metadata"]["component"]["bom-ref"] = bom["metadata"]["component"]["name"] + "@" + bom["metadata"]["component"]["version"]
                 dependencies = {
-                    'ref': bom['metadata']['component']['bom-ref'],
-                    'dependsOn': [],
+                    "ref": bom["metadata"]["component"]["bom-ref"],
+                    "dependsOn": [],
                 }
                 for dependency in node.dependencies:
                     purl = get_purl(dependency.dst.remote, dependency.dst.ref)
                     if (
-                        self._arguments.exclude_dev
+                        self._arguments["exclude_dev"]
                         and str(dependency.dst.id) not in required_ids
                     ):
                         continue
-                    dependencies['dependsOn'].append(str(purl))
-                bom['dependencies'].append(dependencies)
+                    dependencies["dependsOn"].append(str(purl))
+                bom["dependencies"].append(dependencies)
             else:
                 if (
-                    self._arguments.exclude_dev
+                    self._arguments["exclude_dev"]
                     and str(node.id) not in required_ids
                 ):
                     continue
                 purl = get_purl(node.remote, node.ref)
 
                 component = {
-                    'bom-ref': str(purl),
-                    'type': 'library',
-                    'name': node.conanfile.name,
-                    'version': node.conanfile.version,
-                    'description': sanitize(node.conanfile.description),
+                    "bom-ref": str(purl),
+                    "type": "library",
+                    "name": node.conanfile.name,
+                    "version": node.conanfile.version,
+                    "description": sanitize(node.conanfile.description),
                     # For now it seems that there is no author here ...
-                    # 'author': sanitize(node.conanfile.author),
-                    'purl': str(purl),
-                    'externalReferences': self.get_external_references(node.conanfile),
-                    'licenses': self.get_licenses(node.conanfile)
+                    # "author": sanitize(node.conanfile.author),
+                    "purl": str(purl),
+                    "externalReferences": self.get_external_references(node.conanfile),
+                    "licenses": self.get_licenses(node.conanfile)
                 }
                 if node.ref.user:
-                    component['namespace'] = node.ref.user
-                bom['components'].append(component)
+                    component["namespace"] = node.ref.user
+                bom["components"].append(component)
                 dependencies = {
-                    'ref': component['bom-ref'],
-                    'dependsOn': [],
+                    "ref": component["bom-ref"],
+                    "dependsOn": [],
                 }
                 for dependency in node.dependencies:
                     if (
-                        self._arguments.exclude_dev
+                        self._arguments["exclude_dev"]
                         and str(dependency.dst.id) not in required_ids
                     ):
                         continue
                     dep_purl = get_purl(dependency.dst.remote, dependency.dst.ref)
-                    dependencies['dependsOn'].append(str(dep_purl))
-                bom['dependencies'].append(dependencies)
+                    dependencies["dependsOn"].append(str(dep_purl))
+                bom["dependencies"].append(dependencies)
 
         output = json.dumps(bom, indent=2)
-        if self._arguments.output_file == '-' or not self._arguments.output_file:
+        if self._arguments["output_file"] == "-" or not self._arguments["output_file"]:
             print(output)
         else:
-            with open(self._arguments.output_file, "w") as file:
+            with open(self._arguments["output_file"], "w") as file:
                 file.write(output)
 
     def get_licenses(self, conanfile):
@@ -229,19 +229,19 @@ class CycloneDXCommand:
 
 def get_purl(remote, ref):
     qualifiers = {
-        'repository_url': 'localhost' if remote is None else remote.url,
+        "repository_url": "localhost" if remote is None else remote.url,
     }
     if ref.user:
-        qualifiers['channel'] = ref.channel
-    purl = PackageURL(type='conan', namespace=ref.user, name=ref.name, version=ref.version, qualifiers=qualifiers)
+        qualifiers["channel"] = ref.channel
+    purl = PackageURL(type="conan", namespace=ref.user, name=ref.name, version=ref.version, qualifiers=qualifiers)
     return purl
 
 
 def main():
     parser = CycloneDXCommand.get_arg_parser()
     args = parser.parse_args()
-    CycloneDXCommand(args).execute()
+    CycloneDXCommand(vars(args)).execute()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
